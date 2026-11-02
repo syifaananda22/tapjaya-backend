@@ -11,6 +11,7 @@ import orderRoutes from "./routes/order.routes";
 import productRoutes from "./routes/product.routes";
 import uploadRoutes from "./routes/upload.routes";
 import reportRoutes from "./routes/report.routes";
+import settingsRoutes from "./routes/settings.routes";
 
 import { verifyToken } from "./middleware/verifyToken";
 
@@ -80,6 +81,9 @@ app.use("/api/products", productRoutes);
 
 // Laporan keuangan
 app.use("/api/reports", reportRoutes);
+
+// Pengaturan
+app.use("/api/settings", settingsRoutes);
 
 // Jalankan backend
 app.listen(PORT, () => {

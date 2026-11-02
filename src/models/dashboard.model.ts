@@ -58,24 +58,54 @@ type RevenueGrouping = {
 function getPeriodCondition(period: DashboardPeriod): string {
     switch (period) {
         case "7hari":
+            // Senin sampai Minggu pada minggu kalender
             return `
-        o.ordered_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-      `;
+                o.ordered_at >= DATE_SUB(
+                    CURDATE(),
+                    INTERVAL WEEKDAY(CURDATE()) DAY
+                )
+                AND o.ordered_at < DATE_ADD(
+                    DATE_SUB(
+                        CURDATE(),
+                        INTERVAL WEEKDAY(CURDATE()) DAY
+                    ),
+                    INTERVAL 7 DAY
+                )
+            `;
 
         case "1bulan":
+            // Tanggal 1 sampai akhir bulan ini
             return `
-        o.ordered_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
-      `;
+                o.ordered_at >= DATE_FORMAT(
+                    CURDATE(), '%Y-%m-01'
+                )
+                AND o.ordered_at < DATE_ADD(
+                    DATE_FORMAT(CURDATE(), '%Y-%m-01'),
+                    INTERVAL 1 MONTH
+                )
+            `;
 
         case "6bulan":
+            // Enam bulan kalender termasuk bulan ini
             return `
-        o.ordered_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
-      `;
+                o.ordered_at >= DATE_SUB(
+                    DATE_FORMAT(CURDATE(), '%Y-%m-01'),
+                    INTERVAL 5 MONTH
+                )
+                AND o.ordered_at < DATE_ADD(
+                    DATE_FORMAT(CURDATE(), '%Y-%m-01'),
+                    INTERVAL 1 MONTH
+                )
+            `;
 
         case "1tahun":
+            // Januari sampai Desember tahun ini
             return `
-        o.ordered_at >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
-      `;
+                o.ordered_at >= MAKEDATE(YEAR(CURDATE()), 1)
+                AND o.ordered_at < MAKEDATE(
+                    YEAR(CURDATE()) + 1, 1
+                )
+            `;
     }
 }
 
@@ -134,36 +164,28 @@ function getRevenueGrouping(
                 order: "DATE(o.ordered_at)",
             };
 
-        case "1bulan":
+                case "1bulan":
             return {
                 label: `
-          CONCAT(
-            'Minggu ',
-            FLOOR(
-              DATEDIFF(
-                DATE(MIN(o.ordered_at)),
-                DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
-              ) / 7
-            ) + 1
-          )
-        `,
+                    CONCAT(
+                        'Minggu ',
+                        FLOOR(
+                            (DAY(MIN(o.ordered_at)) - 1) / 7
+                        ) + 1
+                    )
+                `,
                 group: `
-          FLOOR(
-            DATEDIFF(
-              DATE(o.ordered_at),
-              DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
-            ) / 7
-          )
-        `,
+                    FLOOR(
+                        (DAY(o.ordered_at) - 1) / 7
+                    )
+                `,
                 order: `
-          FLOOR(
-            DATEDIFF(
-              DATE(o.ordered_at),
-              DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
-            ) / 7
-          )
-        `,
+                    FLOOR(
+                        (DAY(o.ordered_at) - 1) / 7
+                    )
+                `,
             };
+
 
         case "6bulan":
         case "1tahun":
@@ -211,7 +233,7 @@ export async function getDashboardData(
         ) AS completedOrders
       FROM orders o
       WHERE ${dateCondition}
-        AND o.ordered_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
+        
     `,
         dateParams
     );
@@ -236,7 +258,7 @@ export async function getDashboardData(
         COALESCE(SUM(o.total), 0) AS income
       FROM orders o
       WHERE ${dateCondition}
-        AND o.ordered_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
+        
         AND o.status = 'Selesai'
       GROUP BY ${grouping.group}
       ORDER BY ${grouping.order}
@@ -256,7 +278,7 @@ export async function getDashboardData(
       LEFT JOIN products p
         ON p.id = oi.product_id
       WHERE ${dateCondition}
-        AND o.ordered_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
+        
         AND o.status = 'Selesai'
       GROUP BY COALESCE(p.category, 'Lainnya')
       ORDER BY revenue DESC
@@ -298,7 +320,7 @@ export async function getDashboardData(
       LEFT JOIN products p
         ON p.id = oi.product_id
       WHERE ${dateCondition}
-        AND o.ordered_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
+        
         AND o.status = 'Selesai'
       GROUP BY
         COALESCE(p.id, 0),
@@ -340,7 +362,7 @@ export async function getDashboardData(
           o.status
         FROM orders o
         WHERE ${dateCondition}
-          AND o.ordered_at < DATE_ADD(CURDATE(), INTERVAL 1 DAY)
+          
         ORDER BY o.ordered_at DESC, o.id DESC
         LIMIT 5
       `,

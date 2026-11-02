@@ -441,7 +441,7 @@ export async function getOverview(
        WHERE o.status = 'Selesai'
          AND o.ordered_at >= ?
          AND o.ordered_at < ?
-       GROUP BY name`,
+       GROUP BY COALESCE(p.category, 'Lainnya')`,
       [
         p.current.start,
         p.current.end,
