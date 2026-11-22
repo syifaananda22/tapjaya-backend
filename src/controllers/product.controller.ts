@@ -2,14 +2,23 @@
 import type { Request, Response } from "express";
 import * as Product from "../models/product.model";
 
+// Batas harga sesuai revisi dosen
+const MIN_PRICE = 10000;
+const MAX_PRICE = 100000000;
+
 // Memvalidasi input produk
 function validateProduct(body: unknown): string | null {
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
+  if (
+    !body ||
+    typeof body !== "object" ||
+    Array.isArray(body)
+  ) {
     return "Data produk tidak valid.";
   }
 
   const data = body as Record<string, unknown>;
 
+  // Validasi nama produk
   if (
     typeof data.name !== "string" ||
     !data.name.trim()
@@ -17,6 +26,7 @@ function validateProduct(body: unknown): string | null {
     return "Nama produk wajib diisi.";
   }
 
+  // Validasi kategori
   if (
     typeof data.category !== "string" ||
     !data.category.trim()
@@ -24,26 +34,34 @@ function validateProduct(body: unknown): string | null {
     return "Kategori wajib diisi.";
   }
 
+  // Validasi harga produk
   if (
     data.price === null ||
     data.price === undefined ||
     data.price === "" ||
-    !Number.isFinite(Number(data.price)) ||
-    Number(data.price) < 0
+    (typeof data.price !== "string" &&
+      typeof data.price !== "number") ||
+    !Number.isInteger(Number(data.price)) ||
+    Number(data.price) < MIN_PRICE ||
+    Number(data.price) > MAX_PRICE
   ) {
-    return "Harga tidak valid.";
+    return "Harga minimal Rp10.000 dan maksimal Rp100.000.000.";
   }
 
+  // Validasi stok produk
   if (
     data.stock === null ||
     data.stock === undefined ||
     data.stock === "" ||
+    (typeof data.stock !== "string" &&
+      typeof data.stock !== "number") ||
     !Number.isInteger(Number(data.stock)) ||
     Number(data.stock) < 0
   ) {
-    return "Stok tidak valid.";
+    return "Stok harus berupa bilangan bulat minimal 0.";
   }
 
+  // Validasi gambar
   if (
     data.image != null &&
     typeof data.image !== "string"
@@ -51,6 +69,7 @@ function validateProduct(body: unknown): string | null {
     return "Format gambar tidak valid.";
   }
 
+  // Validasi status produk
   if (
     data.is_active !== undefined &&
     typeof data.is_active !== "boolean"
@@ -62,17 +81,22 @@ function validateProduct(body: unknown): string | null {
 }
 
 // GET /api/products
-export async function listProducts(req: Request, res: Response) {
+export async function listProducts(
+  req: Request,
+  res: Response
+) {
   try {
     const data = await Product.getProducts({
       search:
         typeof req.query.search === "string"
           ? req.query.search
           : undefined,
+
       category:
         typeof req.query.category === "string"
           ? req.query.category
           : undefined,
+
       status:
         typeof req.query.status === "string"
           ? req.query.status
@@ -81,7 +105,11 @@ export async function listProducts(req: Request, res: Response) {
 
     return res.json({ data });
   } catch (error) {
-    console.error("Gagal mengambil produk:", error);
+    console.error(
+      "Gagal mengambil produk:",
+      error
+    );
+
     return res.status(500).json({
       message: "Gagal mengambil produk.",
     });
@@ -89,7 +117,10 @@ export async function listProducts(req: Request, res: Response) {
 }
 
 // GET /api/products/:id
-export async function getProduct(req: Request, res: Response) {
+export async function getProduct(
+  req: Request,
+  res: Response
+) {
   try {
     const id = Number(req.params.id);
 
@@ -99,7 +130,8 @@ export async function getProduct(req: Request, res: Response) {
       });
     }
 
-    const data = await Product.getProductById(id);
+    const data =
+      await Product.getProductById(id);
 
     if (!data) {
       return res.status(404).json({
@@ -109,7 +141,11 @@ export async function getProduct(req: Request, res: Response) {
 
     return res.json({ data });
   } catch (error) {
-    console.error("Gagal mengambil detail produk:", error);
+    console.error(
+      "Gagal mengambil detail produk:",
+      error
+    );
+
     return res.status(500).json({
       message: "Gagal mengambil detail produk.",
     });
@@ -117,26 +153,36 @@ export async function getProduct(req: Request, res: Response) {
 }
 
 // POST /api/products
-export async function addProduct(req: Request, res: Response) {
+export async function addProduct(
+  req: Request,
+  res: Response
+) {
   try {
     const error = validateProduct(req.body);
 
     if (error) {
-      return res.status(400).json({ message: error });
+      return res.status(400).json({
+        message: error,
+      });
     }
 
-    const data = await Product.createProduct({
-      ...req.body,
-      price: Number(req.body.price),
-      stock: Number(req.body.stock),
-    });
+    const data =
+      await Product.createProduct({
+        ...req.body,
+        price: Number(req.body.price),
+        stock: Number(req.body.stock),
+      });
 
     return res.status(201).json({
       message: "Produk berhasil ditambahkan.",
       data,
     });
   } catch (error) {
-    console.error("Gagal menambahkan produk:", error);
+    console.error(
+      "Gagal menambahkan produk:",
+      error
+    );
+
     return res.status(500).json({
       message: "Gagal menambahkan produk.",
     });
@@ -144,7 +190,10 @@ export async function addProduct(req: Request, res: Response) {
 }
 
 // PUT /api/products/:id
-export async function editProduct(req: Request, res: Response) {
+export async function editProduct(
+  req: Request,
+  res: Response
+) {
   try {
     const id = Number(req.params.id);
 
@@ -157,14 +206,17 @@ export async function editProduct(req: Request, res: Response) {
     const error = validateProduct(req.body);
 
     if (error) {
-      return res.status(400).json({ message: error });
+      return res.status(400).json({
+        message: error,
+      });
     }
 
-    const data = await Product.updateProduct(id, {
-      ...req.body,
-      price: Number(req.body.price),
-      stock: Number(req.body.stock),
-    });
+    const data =
+      await Product.updateProduct(id, {
+        ...req.body,
+        price: Number(req.body.price),
+        stock: Number(req.body.stock),
+      });
 
     if (!data) {
       return res.status(404).json({
@@ -177,7 +229,11 @@ export async function editProduct(req: Request, res: Response) {
       data,
     });
   } catch (error) {
-    console.error("Gagal memperbarui produk:", error);
+    console.error(
+      "Gagal memperbarui produk:",
+      error
+    );
+
     return res.status(500).json({
       message: "Gagal memperbarui produk.",
     });
@@ -203,10 +259,11 @@ export async function changeProductStatus(
       });
     }
 
-    const updated = await Product.setProductStatus(
-      id,
-      isActive
-    );
+    const updated =
+      await Product.setProductStatus(
+        id,
+        isActive
+      );
 
     if (!updated) {
       return res.status(404).json({
@@ -215,18 +272,27 @@ export async function changeProductStatus(
     }
 
     return res.json({
-      message: "Status produk berhasil diperbarui.",
+      message:
+        "Status produk berhasil diperbarui.",
     });
   } catch (error) {
-    console.error("Gagal mengubah status:", error);
+    console.error(
+      "Gagal mengubah status:",
+      error
+    );
+
     return res.status(500).json({
-      message: "Gagal mengubah status produk.",
+      message:
+        "Gagal mengubah status produk.",
     });
   }
 }
 
 // DELETE /api/products/:id
-export async function removeProduct(req: Request, res: Response) {
+export async function removeProduct(
+  req: Request,
+  res: Response
+) {
   try {
     const id = Number(req.params.id);
 
@@ -236,8 +302,13 @@ export async function removeProduct(req: Request, res: Response) {
       });
     }
 
-    // Menonaktifkan produk agar riwayat transaksi tetap aman
-    const deleted = await Product.setProductStatus(id, false);
+    // Menonaktifkan produk agar
+    // riwayat transaksi tetap aman.
+    const deleted =
+      await Product.setProductStatus(
+        id,
+        false
+      );
 
     if (!deleted) {
       return res.status(404).json({
@@ -246,12 +317,18 @@ export async function removeProduct(req: Request, res: Response) {
     }
 
     return res.json({
-      message: "Produk berhasil dinonaktifkan.",
+      message:
+        "Produk berhasil dinonaktifkan.",
     });
   } catch (error) {
-    console.error("Gagal menonaktifkan produk:", error);
+    console.error(
+      "Gagal menonaktifkan produk:",
+      error
+    );
+
     return res.status(500).json({
-      message: "Gagal menonaktifkan produk.",
+      message:
+        "Gagal menonaktifkan produk.",
     });
   }
 }
